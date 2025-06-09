@@ -1,137 +1,166 @@
 <?php
 /**
- * Plugin Name: Security Headers by Quotient
- * Plugin URI: https://github.com/quotientinc/quotient-security-headers 
- * Description: Adds essential web security headers to improve site security.
- * Version: 1.0.0
- * Requires at least: 5.0
- * Requires PHP: 7.4
- * Author: Mike Broyles
+ * Plugin Name: Security Headers
+ * Description: Adds security headers with admin settings and tooltips.
+ * Version: 1.0.1
+ * Author: Your Name
+ * License: GPL v2 or later
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
-	exit;
+    exit;
 }
 
-/**
- * Send security headers on frontend requests.
- */
-function wp_security_headers_send() {
-	if (
-		is_admin() ||
-		wp_doing_ajax() ||
-		wp_doing_cron() ||
-		headers_sent()
-	) {
-		return;
-	}
-
-	if ( is_ssl() ) {
-		header( 'Strict-Transport-Security: max-age=31536000; includeSubDomains; preload' );
-	}
-
-	$csp_directives = array(
-		"default-src * 'unsafe-inline' 'unsafe-eval' data: blob:",
-		"script-src * 'unsafe-inline' 'unsafe-eval'",
-		"style-src * 'unsafe-inline'",
-		"img-src * data: blob:",
-		"font-src * data:",
-		"connect-src *",
-		"media-src *",
-		"object-src *",
-		"child-src *",
-		"frame-src *",
-		"worker-src *",
-		"frame-ancestors 'self'",
-	);
-	$csp_directives = apply_filters(
-		'wp_security_headers_csp_directives',
-		$csp_directives
-	);
-	header( 'Content-Security-Policy: ' . implode( '; ', $csp_directives ) );
-
-	header( 'X-Frame-Options: SAMEORIGIN' );
-	header( 'X-Content-Type-Options: nosniff' );
-	header( 'Referrer-Policy: strict-origin-when-cross-origin' );
-
-	$permissions = array(
-		'camera=()',
-		'microphone=()',
-		'geolocation=()',
-		'payment=()',
-		'usb=()',
-		'magnetometer=()',
-		'gyroscope=()',
-		'accelerometer=()',
-	);
-	$permissions = apply_filters(
-		'wp_security_headers_permissions_policies',
-		$permissions
-	);
-	header( 'Permissions-Policy: ' . implode( ', ', $permissions ) );
+add_action( 'plugins_loaded', 'wp_security_headers_init' );
+function wp_security_headers_init() {
+    add_action( 'admin_menu', 'wp_security_headers_admin_menu' );
+    add_action( 'admin_init', 'wp_security_headers_register_settings' );
+    add_action( 'send_headers', 'wp_security_headers_send_headers' );
 }
-add_action( 'send_headers', 'wp_security_headers_send' );
 
-/**
- * Display admin activation notice.
- */
-function wp_security_headers_admin_notice() {
-	if ( ! get_option( 'wp_security_headers_activation_notice' ) ) {
-		return;
-	}
-	if ( ! current_user_can( 'manage_options' ) ) {
-		return;
-	}
-	?>
-	<div class="notice notice-success is-dismissible">
-		<p>
-			<strong>
-				<?php esc_html_e( 'Security Headers Plugin activated!', 'security-headers' ); ?>
-			</strong>
-			<?php esc_html_e(
-				'Your site is now sending security headers to improve protection.',
-				'security-headers'
-			); ?>
-		</p>
-	</div>
-	<?php
-	delete_option( 'wp_security_headers_activation_notice' );
+function wp_security_headers_admin_menu() {
+    add_options_page(
+        'Security Headers',
+        'Security Headers',
+        'manage_options',
+        'security-headers',
+        'wp_security_headers_settings_page'
+    );
 }
-add_action( 'admin_notices', 'wp_security_headers_admin_notice' );
 
-/**
- * Add info link to plugin row.
- *
- * @param array $links Existing action links.
- * @return array Modified links.
- */
-function wp_security_headers_action_links( $links ) {
-	$info_link = sprintf(
-		'<a href="#" onclick="alert(%s); return false;">%s</a>',
-		esc_js( __( 'Security headers are automatically applied. No configuration needed!', 'security-headers' ) ),
-		esc_html__( 'Info', 'security-headers' )
-	);
-	array_unshift( $links, $info_link );
-	return $links;
+function wp_security_headers_register_settings() {
+    $headers = wp_security_headers_defaults();
+    foreach ( $headers as $key => $header ) {
+        register_setting( 'wp_security_headers_settings', $key );
+    }
+    register_setting( 'wp_security_headers_settings', 'wp_security_headers_reset' );
 }
-add_filter(
-	'plugin_action_links_' . plugin_basename( __FILE__ ),
-	'wp_security_headers_action_links'
-);
 
-/**
- * Plugin activation.
- */
-function wp_security_headers_activate() {
-	add_option( 'wp_security_headers_activation_notice', true );
+function wp_security_headers_defaults() {
+    return array(
+        'security_header_hsts' => array(
+            'label'       => 'Strict-Transport-Security',
+            'description' => 'Forces HTTPS. Helps prevent protocol downgrade attacks.',
+            'enabled'     => true,
+        ),
+        'security_header_csp' => array(
+            'label'       => 'Content-Security-Policy',
+            'description' => 'Restricts where resources can load from. Helps mitigate XSS.',
+            'enabled'     => true,
+        ),
+        'security_header_frame' => array(
+            'label'       => 'X-Frame-Options',
+            'description' => 'Prevents the site from being embedded in an iframe (clickjacking protection).',
+            'enabled'     => true,
+        ),
+        'security_header_mime' => array(
+            'label'       => 'X-Content-Type-Options',
+            'description' => 'Prevents MIME type sniffing.',
+            'enabled'     => true,
+        ),
+        'security_header_referrer' => array(
+            'label'       => 'Referrer-Policy',
+            'description' => 'Controls how much referrer information is shared.',
+            'enabled'     => true,
+        ),
+        'security_header_permissions' => array(
+            'label'       => 'Permissions-Policy',
+            'description' => 'Restricts access to powerful browser features.',
+            'enabled'     => true,
+        ),
+    );
 }
+
+function wp_security_headers_settings_page() {
+    $headers = wp_security_headers_defaults();
+    ?>
+    <div class="wrap">
+        <h1>Security Headers Settings</h1>
+        <form method="post" action="options.php">
+            <?php settings_fields( 'wp_security_headers_settings' ); ?>
+            <table class="form-table">
+                <?php foreach ( $headers as $key => $header ) :
+                    $enabled = get_option( $key, $header['enabled'] ); ?>
+                    <tr>
+                        <th scope="row">
+                            <?php echo esc_html( $header['label'] ); ?>
+                        </th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="<?php echo esc_attr( $key ); ?>"
+                                       value="1" <?php checked( $enabled, true ); ?> />
+                                Enable
+                            </label>
+                            <p class="description"><?php echo esc_html( $header['description'] ); ?></p>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            </table>
+            <p>
+                <input type="submit" class="button button-primary" value="Save Changes">
+                <input type="submit" name="wp_security_headers_reset" class="button button-secondary"
+                       value="Reset to Recommended">
+            </p>
+        </form>
+    </div>
+    <?php
+}
+
+function wp_security_headers_send_headers() {
+    $headers = wp_security_headers_defaults();
+
+    foreach ( $headers as $key => $header ) {
+        $enabled = get_option( $key, $header['enabled'] );
+        if ( ! $enabled ) {
+            continue;
+        }
+
+        switch ( $key ) {
+            case 'security_header_hsts':
+                if ( is_ssl() ) {
+                    header( 'Strict-Transport-Security: max-age=31536000; includeSubDomains; preload' );
+                }
+                break;
+            case 'security_header_csp':
+                $csp = "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; script-src * 'unsafe-inline' 'unsafe-eval'; ";
+                $csp .= "style-src * 'unsafe-inline'; img-src * data: blob:; font-src * data:; connect-src *; ";
+                $csp .= "media-src *; object-src *; child-src *; frame-src *; worker-src *; frame-ancestors 'self';";
+                header( 'Content-Security-Policy: ' . $csp );
+                break;
+            case 'security_header_frame':
+                header( 'X-Frame-Options: SAMEORIGIN' );
+                break;
+            case 'security_header_mime':
+                header( 'X-Content-Type-Options: nosniff' );
+                break;
+            case 'security_header_referrer':
+                header( 'Referrer-Policy: strict-origin-when-cross-origin' );
+                break;
+            case 'security_header_permissions':
+                $permissions = [
+                    'camera=()', 'microphone=()', 'geolocation=()', 'payment=()',
+                    'usb=()', 'magnetometer=()', 'gyroscope=()', 'accelerometer=()'
+                ];
+                header( 'Permissions-Policy: ' . implode( ', ', $permissions ) );
+                break;
+        }
+    }
+}
+
 register_activation_hook( __FILE__, 'wp_security_headers_activate' );
-
-/**
- * Plugin deactivation.
- */
-function wp_security_headers_deactivate() {
-	delete_option( 'wp_security_headers_activation_notice' );
-}
 register_deactivation_hook( __FILE__, 'wp_security_headers_deactivate' );
+
+function wp_security_headers_activate() {
+    $defaults = wp_security_headers_defaults();
+    foreach ( $defaults as $key => $val ) {
+        add_option( $key, $val['enabled'] );
+    }
+}
+
+function wp_security_headers_deactivate() {
+    $defaults = wp_security_headers_defaults();
+    foreach ( $defaults as $key => $val ) {
+        delete_option( $key );
+    }
+}
 
