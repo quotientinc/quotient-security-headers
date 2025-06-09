@@ -2,9 +2,8 @@
 /**
  * Plugin Name: Security Headers
  * Description: Adds security headers with admin settings and tooltips.
- * Version: 1.0.1
- * Author: Your Name
- * License: GPL v2 or later
+ * Version: 1.0.2
+ * Author: Mike Broyles
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
