@@ -40,32 +40,38 @@ function wp_security_headers_defaults() {
     return array(
         'security_header_hsts' => array(
             'label'       => 'Strict-Transport-Security',
-            'description' => 'Forces HTTPS. Helps prevent protocol downgrade attacks.',
+            'description' => 'Forces HTTPS and instructs browsers to only access the site over HTTPS for a ' .
+                             'specified time. Helps prevent downgrade attacks and cookie hijacking.',
             'enabled'     => true,
         ),
         'security_header_csp' => array(
             'label'       => 'Content-Security-Policy',
-            'description' => 'Restricts where resources can load from. Helps mitigate XSS.',
+            'description' => 'Restricts where content (scripts, styles, images) can load from. ' .
+                             'Helps mitigate XSS and data injection attacks.',
             'enabled'     => true,
         ),
         'security_header_frame' => array(
             'label'       => 'X-Frame-Options',
-            'description' => 'Prevents the site from being embedded in an iframe (clickjacking protection).',
+            'description' => 'Prevents the site from being embedded in iframes on other sites, protecting ' .
+                             'against clickjacking attacks.',
             'enabled'     => true,
         ),
         'security_header_mime' => array(
             'label'       => 'X-Content-Type-Options',
-            'description' => 'Prevents MIME type sniffing.',
+            'description' => 'Instructs browsers not to sniff MIME types. Reduces exposure to drive-by ' .
+                             'download and content-type confusion attacks.',
             'enabled'     => true,
         ),
         'security_header_referrer' => array(
             'label'       => 'Referrer-Policy',
-            'description' => 'Controls how much referrer information is shared.',
+            'description' => 'Controls how much referrer information is included with requests. Helps balance ' .
+                             'privacy and analytics needs.',
             'enabled'     => true,
         ),
         'security_header_permissions' => array(
             'label'       => 'Permissions-Policy',
-            'description' => 'Restricts access to powerful browser features.',
+            'description' => 'Gives fine-grained control over access to powerful browser features like ' .
+                             'camera, microphone, and geolocation.',
             'enabled'     => true,
         ),
     );
